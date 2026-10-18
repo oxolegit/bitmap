@@ -6,6 +6,10 @@ A generator of two-color bitmap images. Every generation is unique: the image is
 
 ![bitmap](og.png)
 
+![Generator interface](docs/interface.png)
+
+![Four images made with bitmap](docs/examples.png)
+
 ## Features
 
 - **Generative bases.** Strange attractors (Clifford, de Jong, Svensson, Bedhead), Gray–Scott reaction-diffusion, flow lines, noise with domain warp (smoke, marble, contour lines, terraces), interference and moiré, heat field, ridges, ringed planets, spirals, Voronoi, superformula.
