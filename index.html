@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bitmap — генератор двухцветных изображений</title>
+    <meta name="description" content="Генератор уникальных двухцветных bitmap-изображений: странные аттракторы, реакция-диффузия, линии течений, муар. Любой формат, экспорт в PNG и SVG.">
+    <meta name="author" content="oxolegit">
+    <meta name="theme-color" content="#EDF2F4">
+    <link rel="canonical" href="https://bitmap.mslv.space/">
+
+    <meta property="og:site_name" content="bitmap">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://bitmap.mslv.space/">
+    <meta property="og:title" content="bitmap — генератор двухцветных изображений">
+    <meta property="og:description" content="Уникальные bitmap-картинки в любом формате. Экспорт в PNG и SVG.">
+    <meta property="og:image" content="https://bitmap.mslv.space/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+    <script type="module" src="/app.js"></script>
+</head>
+<body>
+    <header class="top">
+        <a class="brand" href="/">
+            <img src="/favicon.svg" alt="" width="16" height="16">
+            <span>bitmap</span>
+            <span class="muted" data-i18n="tagline">Генератор двухцветных изображений</span>
+        </a>
+        <nav class="langs" data-i18n-attr="aria-label:language" aria-label="Язык">
+            <button type="button" data-lang="ru" aria-pressed="true">RU</button>
+            <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        </nav>
+    </header>
+
+    <main class="app">
+        <aside class="panel" data-i18n-attr="aria-label:settings" aria-label="Настройки">
+            <fieldset>
+                <legend data-i18n="format">Формат</legend>
+                <div class="seg seg-grid" id="ratios">
+                    <button type="button" data-ratio="1:1">1:1</button>
+                    <button type="button" data-ratio="4:5">4:5</button>
+                    <button type="button" data-ratio="3:4">3:4</button>
+                    <button type="button" data-ratio="2:3">2:3</button>
+                    <button type="button" data-ratio="9:16">9:16</button>
+                    <button type="button" data-ratio="16:9">16:9</button>
+                    <button type="button" data-ratio="3:2">3:2</button>
+                    <button type="button" data-ratio="21:9">21:9</button>
+                    <button type="button" data-ratio="a4">A4</button>
+                    <button type="button" data-ratio="custom" data-i18n="custom">Свой</button>
+                </div>
+                <div class="custom-size" id="customSize" hidden>
+                    <label><span data-i18n="width">Ширина</span><input type="number" id="customW" min="16" max="8192" step="1" inputmode="numeric"></label>
+                    <span class="muted">×</span>
+                    <label><span data-i18n="height">Высота</span><input type="number" id="customH" min="16" max="8192" step="1" inputmode="numeric"></label>
+                </div>
+            </fieldset>
+
+            <fieldset id="sizeField">
+                <legend><span data-i18n="size">Размер</span> <span class="muted" data-i18n="sizeHint">по длинной стороне</span></legend>
+                <div class="seg" id="sizes">
+                    <button type="button" data-size="1080">1080</button>
+                    <button type="button" data-size="2160">2160</button>
+                    <button type="button" data-size="3840">3840</button>
+                    <button type="button" data-size="7680">7680</button>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend><span data-i18n="pixel">Пиксель</span> <output id="pxOut" class="muted">3 px</output></legend>
+                <input type="range" id="px" min="1" max="16" step="1" value="3" data-i18n-attr="aria-label:pixel" aria-label="Пиксель">
+                <p class="note muted" id="pxNote" hidden></p>
+            </fieldset>
+
+            <fieldset>
+                <legend data-i18n="palette">Палитра</legend>
+                <div class="swatches" id="palettes" role="radiogroup" data-i18n-attr="aria-label:palette" aria-label="Палитра"></div>
+                <div class="custom-colors" id="customColors" hidden>
+                    <label><input type="color" id="inkColor" value="#3f3a39"><span data-i18n="ink">Чернила</span></label>
+                    <label><input type="color" id="paperColor" value="#edf2f4"><span data-i18n="paper">Бумага</span></label>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend data-i18n="dither">Дизеринг</legend>
+                <select id="dither" data-i18n-attr="aria-label:dither" aria-label="Дизеринг"></select>
+            </fieldset>
+
+            <fieldset>
+                <legend data-i18n="seed">Seed</legend>
+                <div class="seed-row">
+                    <input type="text" id="seed" spellcheck="false" autocomplete="off" maxlength="32" data-i18n-attr="aria-label:seed" aria-label="Seed">
+                    <button type="button" class="ghost" id="copyLink" data-i18n="copyLink">Ссылка</button>
+                </div>
+            </fieldset>
+        </aside>
+
+        <section class="stage">
+            <div class="frame" id="frame">
+                <canvas id="view" role="img" data-i18n-attr="aria-label:image" aria-label="Сгенерированное изображение"></canvas>
+                <span class="busy" id="busy" data-i18n="rendering" hidden>Рендер…</span>
+            </div>
+
+            <p class="meta" id="meta" aria-live="polite">&nbsp;</p>
+
+            <div class="actions">
+                <button type="button" class="primary" id="generate"><span data-i18n="generate">Сгенерировать</span></button>
+                <button type="button" class="ghost" id="png">PNG</button>
+                <button type="button" class="ghost" id="svg">SVG</button>
+            </div>
+
+            <ol class="history" id="history" data-i18n-attr="aria-label:history" aria-label="История"></ol>
+            <p class="hint muted" data-i18n="shortcuts">Пробел — новая картинка · ← → — история · P — PNG · S — SVG</p>
+        </section>
+    </main>
+
+    <footer class="foot muted">
+        <a href="https://github.com/oxolegit">oxolegit</a>
+        <a href="https://mslv.space">mslv.space</a>
+        <a href="https://github.com/oxolegit/bitmap" data-i18n="license">Лицензия MIT with Attribution</a>
+    </footer>
+</body>
+</html>
