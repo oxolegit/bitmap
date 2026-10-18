@@ -1,5 +1,11 @@
 {
   "cleanUrls": true,
+  "rewrites": [
+    { "source": "/s/:seed", "destination": "/api/share?seed=:seed" }
+  ],
+  "functions": {
+    "api/share.js": { "includeFiles": "index.html" }
+  },
   "headers": [
     {
       "source": "/(.*)\\.(js|css)",
