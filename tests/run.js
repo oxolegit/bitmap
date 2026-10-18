@@ -1,5 +1,5 @@
 // Generator checks without a browser: determinism, variety, quality gate, export geometry.
-// Run with: npm test
+// Run with: node tests/run.js
 import { makeRecipe, renderBits, describe } from '../gen/recipe.js';
 import { measure, isGood } from '../gen/quality.js';
 import { deriveSeed } from '../gen/rng.js';
