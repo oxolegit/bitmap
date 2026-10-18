@@ -3,20 +3,9 @@ import { newSeed, isSeed } from './gen/rng.js';
 import { DITHERS } from './gen/dither.js';
 import { cellsToImageData, toPNG, toSVG, download } from './export.js';
 import { STRINGS, detectLang, applyStrings, describeLine } from './i18n.js';
+import { PALETTES, RATIOS, DEFAULTS, clampSide, parseShare, toQuery, paletteOf } from './share.js';
 
-const PALETTES = {
-    cv: { ink: '#3F3A39', paper: '#EDF2F4' },
-    cvInverse: { ink: '#EDF2F4', paper: '#3F3A39' },
-    graphite: { ink: '#1D1D1F', paper: '#F3F0E8' },
-    blueprint: { ink: '#EAF0FF', paper: '#1F3C88' },
-    sepia: { ink: '#5A3A26', paper: '#F2E6D0' },
-    riso: { ink: '#E8432E', paper: '#F6F1E7' },
-    moss: { ink: '#2E3A26', paper: '#DDE3C9' },
-    night: { ink: '#A9B8FF', paper: '#0F1222' },
-};
-const RATIOS = { '1:1': 1, '4:5': 4 / 5, '3:4': 3 / 4, '2:3': 2 / 3, '9:16': 9 / 16, '16:9': 16 / 9, '3:2': 3 / 2, '21:9': 21 / 9, a4: 1 / Math.SQRT2 };
-const SIZES = [1080, 2160, 3840, 7680];
-const MAX_SIDE = 8192, MIN_SIDE = 16, MAX_CELLS = 4_000_000, HISTORY = 12;
+const MAX_CELLS = 4_000_000, HISTORY = 12;
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -26,17 +15,12 @@ const els = {
     generate: $('generate'), png: $('png'), svg: $('svg'), history: $('history'),
 };
 
-const state = {
-    seed: '', ratio: '4:5', size: 2160, customW: 2000, customH: 2000, px: 3,
-    palette: 'cv', ink: '#3F3A39', paper: '#EDF2F4', dither: 'auto', lang: detectLang(),
-};
+const state = { ...DEFAULTS, lang: detectLang() };
 let current = null;      // { seed, bits, W, H, info, outW, outH }
 const trail = [];        // { seed, thumb }: recent images
 let historyIndex = -1;
 
 // ─── Sizes ──────────────────────────────────────────────────────────────────────────
-const clampSide = (v) => Math.max(MIN_SIDE, Math.min(MAX_SIDE, Math.round(+v || 0)));
-
 function outputSize() {
     if (state.ratio === 'custom') return [clampSide(state.customW), clampSide(state.customH)];
     const r = RATIOS[state.ratio] || 1;
@@ -50,34 +34,20 @@ function grid() {
     return { outW, outH, px, W: Math.ceil(outW / px), H: Math.ceil(outH / px) };
 }
 
-const palette = () => (state.palette === 'custom' ? { ink: state.ink, paper: state.paper } : PALETTES[state.palette]);
+const palette = () => paletteOf(state);
 
 // ─── URL state ──────────────────────────────────────────────────────────────────────
-function writeHash() {
-    const p = new URLSearchParams();
-    p.set('s', state.seed);
-    p.set('r', state.ratio);
-    if (state.ratio === 'custom') { p.set('w', clampSide(state.customW)); p.set('h', clampSide(state.customH)); } else p.set('l', state.size);
-    p.set('px', state.px);
-    p.set('p', state.palette);
-    if (state.palette === 'custom') { p.set('i', state.ink.slice(1)); p.set('b', state.paper.slice(1)); }
-    if (state.dither !== 'auto') p.set('d', state.dither);
-    history.replaceState(null, '', '#' + p.toString());
+// Each image has its own address, /s/<seed>?…, which the server previews as that image.
+function writeState() {
+    if (!state.seed) return;
+    history.replaceState(null, '', `/s/${state.seed}?${toQuery(state)}`);
 }
 
-function readHash() {
-    const p = new URLSearchParams(location.hash.slice(1));
-    const hex = (v) => (/^[0-9a-f]{6}$/i.test(v || '') ? '#' + v : null);
-    if (isSeed(p.get('s'))) state.seed = p.get('s');
-    if (p.get('r') in RATIOS || p.get('r') === 'custom') state.ratio = p.get('r');
-    if (SIZES.includes(+p.get('l'))) state.size = +p.get('l');
-    if (p.get('w')) state.customW = clampSide(p.get('w'));
-    if (p.get('h')) state.customH = clampSide(p.get('h'));
-    if (+p.get('px') >= 1 && +p.get('px') <= 16) state.px = +p.get('px');
-    if (p.get('p') in PALETTES || p.get('p') === 'custom') state.palette = p.get('p');
-    state.ink = hex(p.get('i')) || state.ink;
-    state.paper = hex(p.get('b')) || state.paper;
-    if (p.get('d') in DITHERS) state.dither = p.get('d');
+// From the path and query; links made before /s/ existed kept everything in the hash.
+function readState() {
+    const fromPath = location.pathname.match(/^\/s\/([^/?#]+)/)?.[1] || null;
+    const legacy = location.hash.length > 1 ? new URLSearchParams(location.hash.slice(1)) : null;
+    Object.assign(state, parseShare(legacy || new URLSearchParams(location.search), fromPath && isSeed(fromPath) ? fromPath : null));
 }
 
 // ─── Rendering ──────────────────────────────────────────────────────────────────────
@@ -95,7 +65,7 @@ function startWorker() {
         els.seed.value = data.seed;
         draw();
         remember();
-        writeHash();
+        writeState();
     };
 }
 
@@ -237,7 +207,7 @@ function buildPalettes() {
             state.palette = id;
             syncControls();
             draw();
-            writeHash();
+            writeState();
         });
         return b;
     }));
@@ -256,6 +226,7 @@ function setLang(lang) {
     applyStrings(lang);
     buildDithers();
     updateMeta();
+    writeState();
 }
 
 els.ratios.addEventListener('click', (e) => {
@@ -295,7 +266,7 @@ for (const [input, key] of [[els.inkColor, 'ink'], [els.paperColor, 'paper']]) {
         els.palettes.querySelector('[data-palette="custom"]').style.setProperty(`--${key}`, input.value);
         draw();
     });
-    input.addEventListener('change', writeHash);
+    input.addEventListener('change', writeState);
 }
 
 els.dither.addEventListener('change', () => {
@@ -348,13 +319,13 @@ window.addEventListener('resize', fit);
 // A shared link opened in a tab that is already on the site only changes the hash. The app's
 // own updates use replaceState, which does not fire hashchange, so this is always external.
 window.addEventListener('hashchange', () => {
-    readHash();
+    readState();
     syncControls();
     render(false);
 });
 
 // ─── Start ──────────────────────────────────────────────────────────────────────────
-readHash();
+readState();
 buildPalettes();
 setLang(state.lang);
 syncControls();
